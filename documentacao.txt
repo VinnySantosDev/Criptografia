@@ -1,0 +1,258 @@
+================================================================================
+  DOCUMENTACAO TECNICA
+  Criptografia com Sequencias Matematicas
+  Disciplina: Algoritmo e Pensamento Computacional
+  Atividade Avaliativa 01
+================================================================================
+
+SUMARIO
+  1. Objetivo
+  2. Regras de entrada
+  3. Algoritmo de criptografia
+  4. Sequencias implementadas
+  5. Estrutura do codigo
+  6. Arquivos gerados
+  7. Analise e avaliacao de seguranca (Bloom: Analisar / Avaliar)
+  8. Divergencia encontrada no exemplo do enunciado
+  9. Testes realizados
+ 10. Limitacoes conhecidas
+ 11. Mapeamento com a Taxonomia de Bloom
+
+
+--------------------------------------------------------------------------------
+1. OBJETIVO
+--------------------------------------------------------------------------------
+Programa em C que criptografa uma palavra em duas camadas:
+  Camada 1: Cifra de Cesar com SHIFT fixo;
+  Camada 2: deslocamento dinamico dado por uma sequencia numerica
+            (PA, PG, Fibonacci ou Primos).
+O resultado e gravado em arquivo e todas as operacoes ficam registradas em log.
+
+
+--------------------------------------------------------------------------------
+2. REGRAS DE ENTRADA
+--------------------------------------------------------------------------------
+  Palavra .......... 1 a 15 letras (A-Z, a-z). Rejeita acentos, cedilha,
+                     espacos, numeros e simbolos. Maiusculas sao preservadas.
+  SHIFT ............ inteiro de 1 a 25. (0 e 26 nao alteram nada; valores
+                     acima de 25 equivalem a SHIFT mod 26.)
+  Sequencia ........ 1 = PA, 2 = PG, 3 = Fibonacci, 4 = Primos
+  PA ............... a1 e r entre -1000 e 1000
+  PG ............... a1 entre 1 e 1000, q entre 1 e 10
+                     (limite para que a1 * q^14 caiba em long long)
+
+Toda leitura e feita com fgets + sscanf, e nao com scanf direto. Motivo: scanf
+deixa o '\n' no buffer e entra em loop infinito quando o usuario digita uma
+letra onde se espera numero. Entradas invalidas sao recusadas e pedidas de novo.
+
+
+--------------------------------------------------------------------------------
+3. ALGORITMO DE CRIPTOGRAFIA
+--------------------------------------------------------------------------------
+Para cada letra i da palavra (i = 0, 1, ..., n-1):
+
+    deslocamento[i] = (SHIFT + sequencia[i]) mod 26
+    posicao         = letra - 'a'            (ou - 'A' se maiuscula)
+    nova_posicao    = (posicao + deslocamento[i]) mod 26
+    letra_cifrada   = 'a' + nova_posicao
+
+Descriptografia: mesma conta subtraindo o deslocamento. Como o resultado pode
+ficar negativo, o codigo usa ((x % 26) + 26) % 26, porque em C o operador %
+com operando negativo devolve resultado negativo (ex.: -3 % 26 == -3).
+
+Cada termo da sequencia e reduzido mod 26 ANTES da soma, o que evita overflow
+mesmo com termos grandes de PG.
+
+
+--------------------------------------------------------------------------------
+4. SEQUENCIAS IMPLEMENTADAS
+--------------------------------------------------------------------------------
+  Tipo 1 - PA ........ seq[i] = a1 + i * r
+  Tipo 2 - PG ........ seq[0] = a1;  seq[i] = seq[i-1] * q
+  Tipo 3 - Fibonacci . seq[0] = seq[1] = 1;  seq[i] = seq[i-1] + seq[i-2]
+  Tipo 4 - Primos .... testa candidatos 2, 3, 4, ... com divisao ate a raiz
+                       quadrada (ehPrimo) e guarda os n primeiros primos
+
+Termos gerados para 7 letras (valores padrao da opcao "Comparar"):
+  PA (a1=1, r=1) ..... 1, 2, 3, 4, 5, 6, 7
+  PG (a1=1, q=2) ..... 1, 2, 4, 8, 16, 32, 64
+  Fibonacci .......... 1, 1, 2, 3, 5, 8, 13
+  Primos ............. 2, 3, 5, 7, 11, 13, 17
+
+
+--------------------------------------------------------------------------------
+5. ESTRUTURA DO CODIGO
+--------------------------------------------------------------------------------
+Tipos:
+  TipoSequencia    enum com os quatro tipos (o valor numerico e o "Tipo" do
+                   arquivo de resultado)
+  ConfigSequencia  struct com tipo, a1 e razao
+  Sentido          enum: CRIPTOGRAFAR = +1, DESCRIPTOGRAFAR = -1
+
+Funcoes:
+  lerLinha             le uma linha com fgets e descarta excesso
+  lerInteiro           le inteiro validado dentro de [min, max]
+  validarPalavra       verifica tamanho e se ha somente letras ASCII
+  ehPrimo              teste de primalidade por divisao
+  gerarSequencia       preenche o vetor com os n termos (recebe ponteiros)
+  deslocarLetra        aplica o deslocamento circular a uma letra
+  aplicarCifra         percorre a palavra aplicando as duas camadas
+  mostrarDetalhes      imprime a tabela do calculo letra a letra
+  salvarResultado      grava resultado_criptografia.txt
+  registrarLog         acrescenta linha com data/hora no log (stdarg)
+  executarCifra        fluxo das opcoes 1 e 2 do menu
+  compararSequencias   fluxo da opcao 3 do menu
+  main                 laco do menu
+
+Conceitos das aulas anteriores aplicados:
+  Arquivos ........ fopen/fprintf/fclose, modos "w" (resultado) e "a" (log)
+  Ponteiros ....... parametros de saida (int *shift, ConfigSequencia *cfg,
+                    long long *seq, char *saida)
+  Menus ........... laco com switch e validacao de opcao
+  Matematica ...... PA, PG, Fibonacci, primos e aritmetica modular
+
+
+--------------------------------------------------------------------------------
+6. ARQUIVOS GERADOS
+--------------------------------------------------------------------------------
+resultado_criptografia.txt  (sobrescrito a cada criptografia)
+  Palavra codificada: gswgkle | SHIFT: 3 | Tipo: 3 | Letras: 7
+
+log_execucao.txt  (acumulativo)
+  [2026-10-26 18:20:02] INICIO DA EXECUCAO
+  [2026-10-26 18:20:02] CRIPTOGRAFAR | entrada=coracao | saida=gswgkle | SHIFT=3 | Fibonacci | letras=7
+  [2026-10-26 18:20:02] DESCRIPTOGRAFAR | entrada=gswgkle | saida=coracao | SHIFT=3 | Fibonacci | letras=7
+  [2026-10-26 18:20:02] FIM DA EXECUCAO
+
+Atencao: o log grava a palavra original em texto puro. Num sistema real isso
+anularia a criptografia; aqui esta assim de proposito, para fins de auditoria
+da atividade.
+
+
+--------------------------------------------------------------------------------
+7. ANALISE E AVALIACAO DE SEGURANCA
+--------------------------------------------------------------------------------
+7.1 Comparacao (palavra "coracao", SHIFT 3) - saida da opcao 3 do programa
+
+  Sequencia            Resultado   Deslocamentos distintos
+  PA (a1=1, r=1)       gtxhkjy     7 de 7
+  PG (a1=1, q=2)       gtylvjd     7 de 7
+  Fibonacci            gswgkle     6 de 7
+  Primos               huzkqqi     7 de 7
+
+Observacoes:
+  - Na Cesar pura (so camada 1), "coracao" vira "frudfdr": as letras repetidas
+    (c, o, a) viram letras repetidas (f, r, d). E exatamente esse padrao que a
+    camada 2 tenta esconder - e esconde, nos quatro casos.
+  - Fibonacci comeca com 1, 1: as duas primeiras letras sempre recebem o mesmo
+    deslocamento. Por isso aparece "6 de 7".
+  - Todas as sequencias sao CICLICAS mod 26. Exemplos medidos:
+      PG a1=1, q=2  -> mod 26: 1,2,4,8,16,6,12,24,22,18,10,20,14,2,4 (repete)
+      PG a1=10,q=10 -> mod 26: 10,22,12,16,4,14,10,22,... (periodo 6)
+  - Casos degenerados (viram Cesar simples): PA com r = 0 ou r multiplo de 26;
+    PG com q = 1.
+
+7.2 Qual sequencia produz a cifra "mais forte"?
+Resposta honesta: nenhuma produz uma cifra forte. Diferencas entre elas sao
+cosmeticas diante dos ataques abaixo.
+
+  a) Forca bruta. Pelo principio de Kerckhoffs, o atacante conhece o algoritmo
+     e as sequencias (Fibonacci e primos sao publicos). O unico segredo e:
+       Fibonacci / Primos ... apenas o SHIFT -> 25 chaves possiveis
+       PA ................... (SHIFT + a1) mod 26 e r mod 26 -> no maximo
+                              26 x 26 = 676 chaves efetivas
+       PG ................... a1 e q limitados -> poucos milhares
+     Um laco em C testa tudo isso em milissegundos.
+
+  b) Texto conhecido. Se o atacante tem UM par palavra/cifra, basta subtrair
+     letra a letra para obter os deslocamentos de cada posicao. Como a
+     sequencia e a mesma em toda execucao, qualquer outra palavra cifrada com
+     a mesma chave e quebrada imediatamente.
+
+  c) Reuso de chave. Duas palavras cifradas com a mesma chave recebem os mesmos
+     deslocamentos por posicao; comparar as duas cifras revela relacoes entre
+     as palavras originais.
+
+Conclusao da etapa "Avaliar": PA com a1 e r escolhidos pelo grupo e a que tem
+mais chaves, logo e a "menos fraca". Mas o ganho real de seguranca vem de ter
+mais segredo (chave), nao de usar uma sequencia matematicamente mais bonita.
+Fibonacci e primos parecem mais sofisticados e, na pratica, sao os mais
+fracos, porque nao acrescentam segredo nenhum.
+
+
+--------------------------------------------------------------------------------
+8. DIVERGENCIA ENCONTRADA NO EXEMPLO DO ENUNCIADO
+--------------------------------------------------------------------------------
+O enunciado informa:  coracao + SHIFT 3 + Fibonacci  ->  "fqvdjqb"
+Aplicando a regra do proprio enunciado (deslocamento = SHIFT + sequencia[i]):
+
+  Letra  Pos  Fib  SHIFT+Fib  Nova pos        Saida
+  c       2    1      4        6               g
+  o      14    1      4       18               s
+  r      17    2      5       22               w
+  a       0    3      6        6               g
+  c       2    5      8       10               k
+  a       0    8     11       11               l
+  o      14   13     16       30 mod 26 = 4    e
+
+  Resultado correto pela regra: gswgkle
+
+Fazendo o caminho inverso, os deslocamentos que levam "coracao" a "fqvdjqb"
+seriam 3, 2, 4, 3, 7, 16, 13. Essa lista nao bate com Fibonacci, nem com
+SHIFT + Fibonacci, nem com nenhuma sequencia do material de apoio. O exemplo
+do enunciado esta inconsistente; o programa segue a regra escrita.
+Recomendacao: confirmar com o professor antes da entrega.
+
+
+--------------------------------------------------------------------------------
+9. TESTES REALIZADOS
+--------------------------------------------------------------------------------
+Compilado com: gcc -Wall -Wextra -std=c99 -pedantic  (zero avisos)
+
+  #  Entrada                                   Esperado          Obtido
+  1  coracao, SHIFT 3, Fibonacci               gswgkle           gswgkle
+  2  descriptografar gswgkle, mesmos param.    coracao           coracao
+  3  abc, SHIFT 5, PA a1=2 r=3                 hlp               hlp
+  4  xyz, SHIFT 2, PG a1=5 q=1 (descript.)     qrs               qrs
+  5  Ola, SHIFT 2, Primos                      Sqh (preserva     Sqh
+                                               maiuscula)
+  6  abcdefghijklmno, SHIFT 1, PG a1=10 q=10   sem overflow      ok (ate 10^15)
+  7  "coração" (acentuada)                     rejeitar          rejeitada
+  8  16 letras                                 rejeitar          rejeitada
+  9  "Ola Mundo" (espaco)                      rejeitar          rejeitada
+ 10  SHIFT 0 e SHIFT 30                        rejeitar          rejeitados
+ 11  letra no lugar de numero no menu          pedir de novo     pede de novo
+ 12  fim de entrada (Ctrl+D / Ctrl+Z)          encerrar limpo    encerra e loga
+
+Conferencia manual do teste 3:
+  a(0)+5+2=7 -> h;  b(1)+5+5=11 -> l;  c(2)+5+8=15 -> p   => "hlp"
+
+
+--------------------------------------------------------------------------------
+10. LIMITACOES CONHECIDAS
+--------------------------------------------------------------------------------
+  - Apenas letras ASCII; acentos sao rejeitados em vez de normalizados.
+  - Uma palavra por execucao de cifra; frases nao sao aceitas (regra do
+    enunciado).
+  - resultado_criptografia.txt guarda so a ultima palavra; o historico fica no
+    log.
+  - A cifra nao e segura (secao 7). Nao use para proteger dados reais.
+
+
+--------------------------------------------------------------------------------
+11. MAPEAMENTO COM A TAXONOMIA DE BLOOM
+--------------------------------------------------------------------------------
+  Lembrar ...... alfabeto como posicoes 0-25 e tabela ASCII ('a' = 97)
+                 -> funcao deslocarLetra
+  Compreender .. efeito do SHIFT e da aritmetica modular
+                 -> tabela "mostrarDetalhes" exibida a cada execucao
+  Aplicar ...... implementacao das duas camadas e das quatro sequencias
+                 -> aplicarCifra e gerarSequencia
+  Analisar ..... comparacao das sequencias com a mesma entrada
+                 -> opcao 3 do menu e secao 7.1
+  Avaliar ...... julgamento da forca de cada sequencia
+                 -> secao 7.2
+  Criar ........ sistema completo, com descriptografia, validacao, log e
+                 parametros configuraveis de PA e PG
+
+================================================================================
