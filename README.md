@@ -90,7 +90,9 @@ Esta cifra é **didática**. Nenhuma das sequências a torna segura: o espaço d
 
 ## Integrantes
 
-- Nome 1
-- Nome 2
-- Nome 3
-- Nome 4
+| Nome | RGM |
+|---|---|
+| Vinícius Santos Conceição | 47451530 |
+| Bruna Soares de Almeida | 47552158 |
+| Vinícius Henrique Silva Ferreira | 47449438 |
+| Eduardo Silva Morishita | 48501883 |
